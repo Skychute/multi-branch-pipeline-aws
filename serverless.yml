@@ -1,0 +1,47 @@
+service:
+  name: mbp-connect-portal
+frameworkVersion: ">=1.1.0 <2.0.0"
+plugins:
+  - serverless-plugin-typescript
+  - serverless-offline
+package:
+  include:
+    - cdk/**/*
+    - cdk.json
+    - tsconfig.json
+provider:
+  name: aws
+  region: ap-southeast-2
+  endpointType: regional
+  runtime: nodejs12.x
+  environment:
+    PRODUCT: ${env:PRODUCT}
+    TIER: ${env:TIER}
+    GITHUB_AUTH_SECRET_ARN: ${env:GITHUB_AUTH_SECRET_ARN}
+    DEPLOYMENT_IAM_ARN: ${env:DEPLOYMENT_IAM_ARN}
+    GITHUB_WEBHOOK_SECRET: ${env:GITHUB_WEBHOOK_SECRET}
+    DEFAULT_AWS_REGION: ${env:DEFAULT_AWS_REGION}
+    DEFAULT_AWS_ACCOUNT_ID: ${env:DEFAULT_AWS_ACCOUNT_ID}
+    DEFAULT_HOSTED_ZONE_ID: ${env:DEFAULT_HOSTED_ZONE_ID}
+    DEFAULT_HOSTED_ZONE_NAME: ${env:DEFAULT_HOSTED_ZONE_NAME}
+    DEFAULT_HASURA_ADMIN_SECRET: ${env:DEFAULT_HASURA_ADMIN_SECRET}
+    DEFAULT_HASURA_JWT_SECRET: ${env:DEFAULT_HASURA_JWT_SECRET}
+    DEFAULT_HASURA_GRAPHQL_PATH: ${env:DEFAULT_HASURA_GRAPHQL_PATH}
+    DEFAULT_BRANCH_NAME: ${env:DEFAULT_BRANCH_NAME}
+    PIPELINE_SETUP_FUNCTION_ARN: mbp-connect-portal-dev-pipeline-setup
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - lambda:InvokeFunction
+      Resource: "*"
+functions:
+  pipeline:
+    handler: src/index.pipelineHandler
+    events:
+      - http:
+          path: pipeline
+          method: post
+  pipeline-setup:
+    handler: src/index.pipelineSetupHandler
+
+

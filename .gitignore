@@ -1,0 +1,4 @@
+.serverless/
+.build
+deploy.sh
+node_modules
