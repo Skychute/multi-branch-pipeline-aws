@@ -3,9 +3,9 @@
   "compilerOptions": {
     "types": [
       "node",
-      "jest"
     ],
-    "module": "CommonJS"
+    "module": "CommonJS",
+    "target": "es2015"
   },
   "include": [
     "**/*.ts"

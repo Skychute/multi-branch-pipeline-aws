@@ -23,7 +23,7 @@ for (const key of Object.keys(env.defaultDeploymentEnv)) {
   };
 }
 
-const bucketStack = new BucketStack(app, `-ArtifactBucketStack`, {
+const bucketStack = new BucketStack(app, `${env.github.repoName}-ArtifactBucketStack`, {
   repoName: env.github.repoName,
   tags: {
     Product,
@@ -32,7 +32,7 @@ const bucketStack = new BucketStack(app, `-ArtifactBucketStack`, {
   },
 });
 
-new PipelineStack(app, `-PipelineStack`, {
+new PipelineStack(app, `${env.github.branchName}-PipelineStack`, {
   artifactBucketArn: bucketStack.bucketArn,
   githubInfo: {
     authSecretArn: env.github.authSecretArn,

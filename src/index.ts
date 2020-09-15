@@ -5,7 +5,7 @@ import { ProcessRunner } from './utils/process-runner';
 import { ConfigurationLoader } from './utils/config-loader';
 
 const lambda = new Lambda({
-  region: 'ap-southeast-2',
+  // region: 'ap-southeast-2',
   endpoint: 'http://localhost:3002',
 })
 
@@ -28,12 +28,16 @@ export const pipelineHandler: APIGatewayProxyHandler = async (event) => {
     }
   }
 
-  await lambda.invoke({
-    FunctionName: env.pipelineSetupFuncArn,
-    Payload: event.body,
-    InvocationType: 'Event',
-    // LogType: 'None',
-  }).promise();
+  try {
+    await lambda.invoke({
+      FunctionName: env.pipelineSetupFuncArn,
+      Payload: event.body,
+      InvocationType: 'Event',
+      // LogType: 'None',
+    }).promise();
+  } catch (e) {
+    console.log(e);
+  }
 
   return {
     statusCode: 200,
@@ -62,24 +66,31 @@ export const pipelineSetupHandler: Handler = async (event) => {
     }
   }
 
-  const branch = ref.replace('refs/heads/', '');
+  const branch = ref.replace('refs/heads/', '').replace(/\//g, '-');
   const repo = payload.repository.name;
   const owner = payload.repository.owner.id.toString();
-
-  ProcessRunner.setEnvironmentVars({
-    PRODUCT: env.tag.product,
-    TIER: env.tag.tier,
-    GITHUB_AUTH_SECRET_ARN: env.githubAuthSecretArn,
-    BRANCH_NAME: branch,
-    GITHUB_OWNER_ID: owner,
-    GITHUB_REPO_NAME: repo,
-    DEFAULT_DEPLOYMENT_ENVS: ConfigurationLoader.getDefaultEnvsAsString(),
-    DEPLOYMENT_IAM_ARN: env.deploymentIamArn,
-  });
 
   await ProcessRunner.runProcess(
     'npx',
     ["cdk", "deploy", '"*"', '--require-approval', 'never'],
+    {
+      stdout: process.stdout,
+      stdin: process.stdin,
+      stderr: process.stderr,
+      spawnOptions: {
+        env: {
+          PRODUCT: env.tag.product,
+          TIER: env.tag.tier,
+          GITHUB_AUTH_SECRET_ARN: env.githubAuthSecretArn,
+          BRANCH_NAME: branch,
+          GITHUB_OWNER_ID: owner,
+          GITHUB_REPO_NAME: repo,
+          DEFAULT_DEPLOYMENT_ENVS: ConfigurationLoader.getDefaultEnvsAsString(),
+          DEPLOYMENT_IAM_ARN: env.deploymentIamArn,
+          PATH: process.env.PATH
+        }
+      }
+    }
   );
 
   return {

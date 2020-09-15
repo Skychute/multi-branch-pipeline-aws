@@ -11,7 +11,7 @@ export class BucketStack extends Stack {
     super(app, id, props);
 
     const bucket = new s3.Bucket(this, 'CreateArtifactBucket', {
-      bucketName: `Artifacts-${props.repoName}`,
+      bucketName: `artifacts-${props.repoName.toLowerCase()}`,
     });
 
     this.bucketArn = bucket.bucketArn;
