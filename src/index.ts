@@ -66,13 +66,13 @@ export const pipelineSetupHandler: Handler = async (event) => {
     }
   }
 
-  const branch = ref.replace('refs/heads/', '').replace(/\//g, '-');
+  const branch = ref.replace('refs/heads/', '');
   const repo = payload.repository.name;
-  const owner = payload.repository.owner.id.toString();
+  const owner = payload.repository.owner.name;
 
   await ProcessRunner.runProcess(
-    'npx',
-    ["cdk", "deploy", '"*"', '--require-approval', 'never'],
+    'node',
+    ["node_modules/aws-cdk/bin/cdk", "deploy", '"*"', '--require-approval', 'never'],
     {
       stdout: process.stdout,
       stdin: process.stdin,
@@ -82,10 +82,11 @@ export const pipelineSetupHandler: Handler = async (event) => {
           PRODUCT: env.tag.product,
           TIER: env.tag.tier,
           GITHUB_AUTH_SECRET_ARN: env.githubAuthSecretArn,
-          BRANCH_NAME: branch,
-          GITHUB_OWNER_ID: owner,
+          BRANCH_NAME: branch.replace(/\//g, '-'),
+          ORIGINAL_BRANCH_NAME: branch,
+          GITHUB_OWNER_NAME: owner,
           GITHUB_REPO_NAME: repo,
-          DEFAULT_DEPLOYMENT_ENVS: ConfigurationLoader.getDefaultEnvsAsString(),
+          DEFAULT_DEPLOYMENT_ENVS: ConfigurationLoader.getDefaultEnvsAsString({ BRANCH_NAME: branch }),
           DEPLOYMENT_IAM_ARN: env.deploymentIamArn,
           PATH: process.env.PATH
         }

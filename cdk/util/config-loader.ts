@@ -5,9 +5,10 @@ export interface Config {
   };
   github: {
     branchName: string;
+    orginalBranchName: string;
     repoName: string;
     authSecretArn: string;
-    ownerId: string;
+    ownerName: string;
   };
   deploymentIamArn: string;
   defaultDeploymentEnv: { [key: string]: string; };
@@ -30,8 +31,9 @@ export class ConfigurationLoader {
       github: {
         authSecretArn: this.strictEnv('GITHUB_AUTH_SECRET_ARN'),
         branchName: this.strictEnv('BRANCH_NAME'),
-        ownerId: this.strictEnv('GITHUB_OWNER_ID'),
+        ownerName: this.strictEnv('GITHUB_OWNER_NAME'),
         repoName: this.strictEnv('GITHUB_REPO_NAME'),
+        orginalBranchName: this.strictEnv('ORIGINAL_BRANCH_NAME'),
       },
       defaultDeploymentEnv: JSON.parse(this.strictEnv('DEFAULT_DEPLOYMENT_ENVS')),
       deploymentIamArn: this.strictEnv('DEPLOYMENT_IAM_ARN'),

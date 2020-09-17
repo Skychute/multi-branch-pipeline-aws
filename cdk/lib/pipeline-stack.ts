@@ -17,9 +17,10 @@ interface PipelineStackProps extends StackProps {
 
 interface GithubInfo {
   branchName: string;
+  orginalBranchName: string;
   repoName: string;
   authSecretArn: string;
-  ownerId: string;
+  ownerName: string;
 }
 
 export class PipelineStack extends Stack {
@@ -34,11 +35,11 @@ export class PipelineStack extends Stack {
 
     const sourceOutput = new codepipeline.Artifact();
     const sourceAction = new codepipeline_actions.GitHubSourceAction({
-      actionName: 'GithubSource',
+      actionName: 'Source',
       repo: props.githubInfo.repoName,
       output: sourceOutput,
-      branch: props.githubInfo.branchName,
-      owner: props.githubInfo.ownerId,
+      branch: props.githubInfo.orginalBranchName,
+      owner: props.githubInfo.ownerName,
       oauthToken: gitSecret.secretValue,
       trigger: codepipeline_actions.GitHubTrigger.WEBHOOK,
     });
@@ -49,19 +50,24 @@ export class PipelineStack extends Stack {
       }),
       buildSpec: codebuild.BuildSpec.fromSourceFilename('buildspec.yml'),
       role: iamRole,
-      projectName: `${props.githubInfo.branchName}CodeBuild`,
+      projectName: `${props.githubInfo.branchName}-CodeBuild`,
+      environment: {
+        privileged: true,
+        buildImage: codebuild.LinuxBuildImage.STANDARD_4_0,
+        computeType: codebuild.ComputeType.MEDIUM,
+      }
     });
     
 
-    const deployAction = new codepipeline_actions.CodeBuildAction({
-      actionName: 'building',
+    const buildAction = new codepipeline_actions.CodeBuildAction({
+      actionName: 'Build',
       input: sourceOutput,
       project: build,
       environmentVariables: props.defaultDeploymentEnvVariables,
     });
 
     new codepipeline.Pipeline(this, `GithubCodePipeline`, {
-      pipelineName: `${props.githubInfo.branchName}Pipeline`,
+      pipelineName: `${props.githubInfo.branchName}`,
       role: iamRole,
       restartExecutionOnUpdate: true,
       artifactBucket: artifactBucket,
@@ -71,8 +77,8 @@ export class PipelineStack extends Stack {
           actions: [ sourceAction ],
         },
         {
-          stageName: 'Deploy',
-          actions: [ deployAction ],
+          stageName: 'Build',
+          actions: [ buildAction ],
         }
       ],
     });

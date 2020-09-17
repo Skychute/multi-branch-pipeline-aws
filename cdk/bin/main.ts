@@ -37,8 +37,9 @@ new PipelineStack(app, `${env.github.branchName}-PipelineStack`, {
   githubInfo: {
     authSecretArn: env.github.authSecretArn,
     branchName: env.github.branchName,
-    ownerId: env.github.ownerId,
+    ownerName: env.github.ownerName,
     repoName: env.github.repoName,
+    orginalBranchName: env.github.orginalBranchName,
   },
   defaultDeploymentEnvVariables: defaultDeploymentEnv,
   pipelineIamRoleArn: env.deploymentIamArn,
