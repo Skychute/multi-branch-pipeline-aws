@@ -9,6 +9,7 @@ package:
     - cdk/**/*
     - cdk.json
     - tsconfig.json
+    - deployment-environment.json
 provider:
   name: aws
   region: ap-southeast-2
