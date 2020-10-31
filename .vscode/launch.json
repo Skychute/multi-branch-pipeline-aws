@@ -12,11 +12,12 @@
       "program": "${workspaceFolder}/node_modules/serverless/bin/serverless.js",
       "args": ["offline"],
       "env": {
+        "AWS_PROFILE": "skychute",
         "AWS_REGION":"ap-southeast-2",
         "PRODUCT":"Connect-Portal",
         "TIER":"Development",
         "GITHUB_AUTH_SECRET_ARN":"arn:aws:secretsmanager:ap-southeast-2:578348324857:secret:skychuterobot-github-cTTP0z",
-        "DEPLOYMENT_IAM_ARN":"arn:aws:iam::578348324857:user/cdk-test-user",
+        "DEPLOYMENT_IAM_ARN":"arn:aws:iam::578348324857:role/codebuild-default",
         "GITHUB_WEBHOOK_SECRET":"09chvk87u2153pihfsambzxv2wehybro3",
         "DEFAULT_AWS_REGION":"ap-southeast-2",
         "DEFAULT_AWS_ACCOUNT_ID":"578348324857",

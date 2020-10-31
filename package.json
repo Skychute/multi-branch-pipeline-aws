@@ -15,7 +15,9 @@
     "eslint": "^7.8.1",
     "serverless": "^1.78.1",
     "serverless-offline": "6.5.0",
-    "serverless-plugin-typescript": "^1.1.9"
+    "serverless-plugin-typescript": "^1.1.9",
+    "aws-sdk": "^2.749.0",
+    "aws-lambda": "^1.0.6"
   },
   "dependencies": {
     "@aws-cdk/aws-codebuild": "^1.62.0",
@@ -25,8 +27,6 @@
     "@aws-cdk/aws-s3": "^1.62.0",
     "@aws-cdk/aws-secretsmanager": "^1.62.0",
     "aws-cdk": "1.60.0",
-    "aws-lambda": "^1.0.6",
-    "aws-sdk": "^2.749.0",
     "ts-node": "^9.0.0",
     "typescript": "^4.0.2"
   }

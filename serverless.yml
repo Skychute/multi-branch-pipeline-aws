@@ -27,8 +27,10 @@ provider:
     DEFAULT_HASURA_ADMIN_SECRET: ${env:DEFAULT_HASURA_ADMIN_SECRET}
     DEFAULT_HASURA_JWT_SECRET: ${env:DEFAULT_HASURA_JWT_SECRET}
     DEFAULT_HASURA_GRAPHQL_PATH: ${env:DEFAULT_HASURA_GRAPHQL_PATH}
-    DEFAULT_BRANCH_NAME: ${env:DEFAULT_BRANCH_NAME}
+    DEFAULT_LOKALISE_API_KEY: ${env:DEFAULT_LOKALISE_API_KEY}
+    DEFAULT_LOKALISE_WEB_APP_PROJECT_ID: ${env:DEFAULT_LOKALISE_WEB_APP_PROJECT_ID}
     PIPELINE_SETUP_FUNCTION_ARN: mbp-connect-portal-dev-pipeline-setup
+    PIPELINE_EXECUTE_FUNCTION_ARN: mbp-connect-portal-dev-pipeline-execute
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -43,5 +45,7 @@ functions:
           method: post
   pipeline-setup:
     handler: src/index.pipelineSetupHandler
+  pipeline-execute:
+    handler: src/index.pipelineExecutionHandler
 
 

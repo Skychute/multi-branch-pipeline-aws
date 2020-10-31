@@ -41,7 +41,7 @@ export class PipelineStack extends Stack {
       branch: props.githubInfo.orginalBranchName,
       owner: props.githubInfo.ownerName,
       oauthToken: gitSecret.secretValue,
-      trigger: codepipeline_actions.GitHubTrigger.WEBHOOK,
+      trigger: codepipeline_actions.GitHubTrigger.NONE,
     });
 
     const build = new codebuild.PipelineProject(this, 'CodebuildPipeline', {

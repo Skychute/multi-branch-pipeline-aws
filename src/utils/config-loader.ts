@@ -7,6 +7,7 @@ export interface Config {
   deploymentIamArn: string;
   githubWebhookSecret: string;
   pipelineSetupFuncArn: string;
+  pipelineExecuteFuncArn: string;
 }
 
 export class ConfigurationLoader {
@@ -27,6 +28,7 @@ export class ConfigurationLoader {
       deploymentIamArn: this.strictEnv('DEPLOYMENT_IAM_ARN'),
       githubWebhookSecret: this.strictEnv('GITHUB_WEBHOOK_SECRET'),
       pipelineSetupFuncArn: this.strictEnv('PIPELINE_SETUP_FUNCTION_ARN'),
+      pipelineExecuteFuncArn: this.strictEnv('PIPELINE_EXECUTE_FUNCTION_ARN'),
     };
     return this._config;
   }
