@@ -44,8 +44,10 @@ functions:
           path: pipeline
           method: post
   pipeline-setup:
+    timeout: 600
     handler: src/index.pipelineSetupHandler
   pipeline-execute:
+    timeout: 600
     handler: src/index.pipelineExecutionHandler
 
 

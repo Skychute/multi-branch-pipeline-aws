@@ -9,11 +9,13 @@ export class BucketStack extends Stack {
   public bucketArn: string;
   constructor(app: App, id: string, props: BucketStackProps) {
     super(app, id, props);
-
-    const bucket = new s3.Bucket(this, 'CreateArtifactBucket', {
-      bucketName: `artifacts-${props.repoName.toLowerCase()}`,
-    });
-
+    const bucketName = `artifacts-${props.repoName.toLowerCase()}`;
+    let bucket = s3.Bucket.fromBucketName(this, 'CreateArtifactBucket', bucketName);
+    if (!bucket) {
+      bucket = new s3.Bucket(this, 'CreateArtifactBucket', {
+        bucketName,
+      });
+    }
     this.bucketArn = bucket.bucketArn;
   }
 }

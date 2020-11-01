@@ -14,6 +14,7 @@ const env = ConfigurationLoader.load();
 
 export const pipelineHandler: APIGatewayProxyHandler = async (event) => {
   try {
+    console.log(event);
     if (!event.body) {
       throw new Error('Request body is empty');
     }
@@ -26,9 +27,11 @@ export const pipelineHandler: APIGatewayProxyHandler = async (event) => {
     if (!isValidPayload) {
       throw new Error('GitHub signature is invalid');
     }
+    const parsedBody = JSON.parse(event.body) as GithubPayload;
     const githubEvent = event.headers['X-GitHub-Event'];
     try {
       if (['create'].includes(githubEvent)) {
+        console.log('[create] event recieved, running pipeline setup');
         await lambda.invoke({
           FunctionName: env.pipelineSetupFuncArn,
           Payload: event.body,
@@ -36,11 +39,27 @@ export const pipelineHandler: APIGatewayProxyHandler = async (event) => {
         }).promise();
       }
       if (githubEvent === 'push') {
-        await lambda.invoke({
-          FunctionName: env.pipelineExecuteFuncArn,
-          Payload: event.body,
-          InvocationType: 'Event',
-        }).promise();
+        // when delete or create event occur, they also trigger a push event immediately before or after
+        // we shouldn't trigger the pipeline on 'create' push because it doesn't exist yet
+        // we shouldn't trigger the pipeline on 'delete' push because it the branch is no longer there 
+        switch (true) {
+          case parsedBody.deleted: {
+            console.log('[push-deleted] event recieved, nothing to do');
+            break;
+          }
+          case parsedBody.created: {
+            console.log('[push-created] event recieved, nothing to do');
+            break;
+          }
+          default: {
+            console.log('[push-commit] event recieved, triggering the pipeline');
+            await lambda.invoke({
+              FunctionName: env.pipelineExecuteFuncArn,
+              Payload: event.body,
+              InvocationType: 'Event',
+            }).promise();
+          }
+        }
       }
     } catch (e) {
       console.log(e);
@@ -84,6 +103,10 @@ export const pipelineSetupHandler: Handler<GithubPayload> = async (payload) => {
   };
   if (process.env.IS_OFFLINE && process.env.AWS_PROFILE) {
     cdkEnvironment.AWS_PROFILE = process.env.AWS_PROFILE;
+  } else {
+    cdkEnvironment.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
+    cdkEnvironment.AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
+    cdkEnvironment.AWS_SESSION_TOKEN = process.env.AWS_SESSION_TOKEN;
   }
   await ProcessRunner.runProcess(
     'node',
