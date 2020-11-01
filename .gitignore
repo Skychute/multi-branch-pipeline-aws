@@ -4,6 +4,7 @@ node_modules
 cdk.out
 cdk/**/*.js
 .DS_Store
+tmp
 
 .env
 deployment-environment.json

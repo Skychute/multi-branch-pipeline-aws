@@ -6,10 +6,16 @@ import { ConfigurationLoader } from './utils/config-loader';
 import { PromiseResult } from 'aws-sdk/lib/request';
 import { PipelineSummary } from 'aws-sdk/clients/codepipeline';
 import { ExpectedENV as CDKExpectedENV } from '../cdk/util/config-loader';
+import unzipper from 'unzipper';
+import { waitForStream } from './utils/await-stream';
 
 const lambda = (process.env.IS_OFFLINE) ? new Lambda({
   endpoint: 'http://localhost:3002',
 }) : new Lambda();
+
+const s3 = new S3({
+  // endpoint: 'http://localhost:3002' 
+});
 
 const env = ConfigurationLoader.load();
 
@@ -162,3 +168,55 @@ export const pipelineExecutionHandler: Handler<GithubPayload> = async (payload) 
     name: matchingPipeline.name
   }).promise();
 }
+
+export const pipelineDestroyHandler: Handler = async (event) => {
+  console.log(event);
+  const payload = event as GithubPayload;
+  if (!payload.ref) {
+    return {
+      statusCode: 500,
+      body: 'no ref in payload',
+    }
+  }
+  const ref = payload.ref;
+  const branch = ref.replace('refs/heads/', '');
+
+  const branchName = branch.replace(/\//g, '-');
+  const bucketName = 'artifacts-connect-portal'; // TODO: MAKE ENV
+  const objListOutput = await s3.listObjectsV2({
+    Bucket: bucketName,
+    Prefix: `${branchName}/Artifact_S/`,
+  }).promise();
+  if (!objListOutput.$response.data || !objListOutput.$response.data.Contents?.length) {
+    throw new Error('Could not find contents!');
+  }
+  const objectContent = objListOutput.$response.data.Contents;
+  objectContent.sort((a, b) => {
+    if (!a.LastModified) return 1;
+    if (!b.LastModified) return -1;
+    return b.LastModified.valueOf() - a.LastModified.valueOf();
+  });
+  if (!objectContent[0].Key) {
+    throw new Error('Could not find key!');
+  }
+  const key = objectContent[0].Key;
+  const artifactZipStream = s3.getObject({
+    Bucket: bucketName,
+    Key: key,
+  }).createReadStream();
+  await waitForStream(artifactZipStream.pipe(unzipper.Extract({ path: 'tmp/artifact'})));
+  await ProcessRunner.runProcess(
+    'sh',
+    [`tmp/artifact/scripts/destroy.sh`],
+    {
+      stdout: process.stdout,
+      stdin: process.stdin,
+      stderr: process.stderr,
+      spawnOptions: {
+        env: {
+          BRANCH_NAME: branch.replace(/\//g, '-'),
+        }
+      }
+    }
+  );
+};
