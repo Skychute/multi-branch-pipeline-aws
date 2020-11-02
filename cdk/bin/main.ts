@@ -22,7 +22,6 @@ for (const key of Object.keys(env.defaultDeploymentEnv)) {
     type: BuildEnvironmentVariableType.PLAINTEXT
   };
 }
-
 const bucketStack = new BucketStack(app, `${env.github.repoName}-ArtifactBucketStack`, {
   repoName: env.github.repoName,
   tags: {

@@ -50,7 +50,7 @@ export const pipelineHandler: APIGatewayProxyHandler = async (event) => {
           case parsedBody.created: {
             console.log('[push-created] event recieved, nothing to do');
             break;
-          }
+          }// TODO: check PRs
           default: {
             console.log('[push-commit] event recieved, triggering the pipeline');
             await lambda.invoke({
@@ -104,6 +104,7 @@ export const pipelineSetupHandler: Handler<GithubPayload> = async (payload) => {
   if (process.env.IS_OFFLINE && process.env.AWS_PROFILE) {
     cdkEnvironment.AWS_PROFILE = process.env.AWS_PROFILE;
   } else {
+    cdkEnvironment.AWS_REGION = process.env.AWS_REGION;
     cdkEnvironment.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
     cdkEnvironment.AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
     cdkEnvironment.AWS_SESSION_TOKEN = process.env.AWS_SESSION_TOKEN;
@@ -134,7 +135,6 @@ export const pipelineExecutionHandler: Handler<GithubPayload> = async (payload) 
   const branch = ref.replace('refs/heads/', '');
   const branchSanitized = branch.replace(/\//g, '-');
   const expectedPipelineName = branchSanitized.toLowerCase();
-  let a: Required<PipelineSummary>;
   let matchingPipeline: PipelineSummary | undefined; 
   const pipelineService = new CodePipeline();
 
@@ -154,11 +154,10 @@ export const pipelineExecutionHandler: Handler<GithubPayload> = async (payload) 
     if (pipelines) {
       matchingPipeline = pipelines.find(p => p.name && p.name.toLowerCase() === expectedPipelineName);
     }
-  } while (!matchingPipeline && pipelineResult.nextToken)
+  } while (!matchingPipeline && pipelineResult.nextToken);
   
   if (!matchingPipeline || !matchingPipeline.name) {
-    console.warn(`Couldn't find a matching pipeline for branch ${branchSanitized}`);
-    return;
+    throw new Error(`Couldn't find a matching pipeline for branch [${branchSanitized}]`);
   }
   await pipelineService.startPipelineExecution({
     name: matchingPipeline.name

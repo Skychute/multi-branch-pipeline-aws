@@ -12,7 +12,7 @@
       "program": "${workspaceFolder}/node_modules/serverless/bin/serverless.js",
       "args": ["offline"],
       "env": {
-        "AWS_PROFILE": "skychute",
+        "AWS_PROFILE": "skychute-cdk",
         "AWS_REGION":"ap-southeast-2",
         "PRODUCT":"Connect-Portal",
         "TIER":"Development",
@@ -26,7 +26,9 @@
         "DEFAULT_HASURA_ADMIN_SECRET":"bU3A&(VsD3(=]C(dUK-:sh7>Y?P7i}a",
         "DEFAULT_HASURA_JWT_SECRET": "{\"type\":\"HS256\", \"key\": \"123123123123123123123123123123123123123123123123123123123123123\"}",
         "DEFAULT_HASURA_GRAPHQL_PATH":"/v1/graphql",
-        "DEFAULT_BRANCH_NAME":"#{SourceVariables.BranchName}"
+        "DEFAULT_BRANCH_NAME":"#{SourceVariables.BranchName}",
+        "DEFAULT_LOKALISE_WEB_APP_PROJECT_ID": "333311065f70617e264816.57091515",
+        "DEFAULT_LOKALISE_API_KEY": "eac80d95f9e1d8b6356e51c0257a10766bfa508f"
       },
       "port": 9229,
       "console": "integratedTerminal",
