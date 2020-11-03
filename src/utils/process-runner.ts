@@ -13,7 +13,6 @@ export class ProcessRunner {
     options: IProcessRunOptions = process
   ): Promise<string> {
     return new Promise((resolve, reject) => {
-      console.log(`ENV: ${JSON.stringify(options.spawnOptions?.env)}`);
       const instance = spawn(
         processPath,
         args,

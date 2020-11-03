@@ -15,7 +15,6 @@ const env = ConfigurationLoader.load();
 
 export const pipelineHandler: APIGatewayProxyHandler = async (event) => {
   try {
-    console.log(event);
     if (!event.body) {
       throw new Error('Request body is empty');
     }
@@ -79,7 +78,6 @@ export const pipelineHandler: APIGatewayProxyHandler = async (event) => {
 };
 
 export const pipelineSetupHandler: Handler<GithubPayload> = async (payload) => {
-  // console.log(payload);
 
   if (!payload.ref) {
     throw new Error('no ref in payload');
@@ -127,7 +125,6 @@ export const pipelineSetupHandler: Handler<GithubPayload> = async (payload) => {
 };
 
 export const pipelineExecutionHandler: Handler<GithubPayload> = async (payload) => {
-  // console.log(payload);
   const ref = payload.ref;
 
   if (!ref) {

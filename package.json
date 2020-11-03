@@ -6,7 +6,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy": "(cd cdk && tsc) && env-cmd sh scripts/deploy.sh",
-    "cdk": "env-cmd sh scripts/cdk.sh"
+    "cdk": "env-cmd sh scripts/cdk.sh",
+    "generate-env": "if [ ! -f .env ];\n then cp example.env .env\nfi && if [ ! -f deployment-environment.json ];\n then cp deployment-environment.example.json deployment-environment.json\nfi",
+    "postinstall": "npm run generate-env"
   },
   "author": "",
   "license": "ISC",
