@@ -12,8 +12,23 @@ export interface Config {
   };
   deploymentIamArn: string;
   defaultDeploymentEnv: { [key: string]: string; };
+  chatBotAddress: string;
 }
+export interface ExpectedENV {
+  PRODUCT: string;
+  TIER: string;
 
+  GITHUB_AUTH_SECRET_ARN: string;
+  BRANCH_NAME: string;
+  GITHUB_OWNER_NAME: string;
+  GITHUB_REPO_NAME: string;
+  ORIGINAL_BRANCH_NAME: string;
+
+  DEFAULT_DEPLOYMENT_ENVS: string;
+  DEPLOYMENT_IAM_ARN: string;
+  PIPELINE_CHATBOT_ADDRESS: string;
+
+}
 export class ConfigurationLoader {
   private constructor() {
     // Static Class
@@ -37,11 +52,12 @@ export class ConfigurationLoader {
       },
       defaultDeploymentEnv: JSON.parse(this.strictEnv('DEFAULT_DEPLOYMENT_ENVS')),
       deploymentIamArn: this.strictEnv('DEPLOYMENT_IAM_ARN'),
+      chatBotAddress: this.strictEnv('PIPELINE_CHATBOT_ADDRESS'),
     };
     return this._config;
   }
 
-  protected static strictEnv(key: string, defaultValue?: string): string {
+  protected static strictEnv(key: keyof ExpectedENV, defaultValue?: string): string {
     const value = this.env(key, defaultValue);
     if (value === undefined) {
       throw new Error(`No default value has been provided for variable ${key}`);
@@ -50,9 +66,9 @@ export class ConfigurationLoader {
     return value;
   }
 
-  protected static env(key: string, defaultValue: string | undefined): string;
-  protected static env(key: string): string | undefined;
-  protected static env(key: string, defaultValue?: string): string | undefined {
+  protected static env<T extends string>(key: T, defaultValue: string | undefined): string;
+  protected static env<T extends string>(key: T): string | undefined;
+  protected static env<T extends string>(key: T, defaultValue?: string): string | undefined {
     const value = process.env[key];
     if (value === undefined) {
       console.warn(`Environment variable ${key} is not set`);

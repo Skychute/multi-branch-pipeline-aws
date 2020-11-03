@@ -46,6 +46,6 @@ new PipelineStack(app, `${env.github.branchName}-PipelineStack`, {
     Product,
     Tier,
     Purpose: 'Deployment pipeline'
-  }
+  },
+  chatBotAddress: env.chatBotAddress
 });
-

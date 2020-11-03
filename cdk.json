@@ -1,5 +1,5 @@
 {
-  "app": "node ./node_modules/ts-node/dist/bin --project=\"./cdk/tsconfig.json\" cdk/bin/main.ts",
+  "app": "node cdk/bin/main.js",
   "context": {
     "@aws-cdk/core:enableStackNameDuplicates": "true",
     "aws-cdk:enableDiffNoFail": "true"

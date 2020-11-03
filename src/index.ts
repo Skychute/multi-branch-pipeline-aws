@@ -5,6 +5,7 @@ import { ProcessRunner } from './utils/process-runner';
 import { ConfigurationLoader } from './utils/config-loader';
 import { PromiseResult } from 'aws-sdk/lib/request';
 import { PipelineSummary } from 'aws-sdk/clients/codepipeline';
+import { ExpectedENV as CDKExpectedENV } from '../cdk/util/config-loader';
 
 const lambda = (process.env.IS_OFFLINE) ? new Lambda({
   endpoint: 'http://localhost:3002',
@@ -89,7 +90,7 @@ export const pipelineSetupHandler: Handler<GithubPayload> = async (payload) => {
   const branch = ref.replace('refs/heads/', '');
   const repo = payload.repository.name;
   const owner = payload.repository.owner.name || payload.repository.owner.login;
-  const cdkEnvironment: NodeJS.ProcessEnv = {
+  const cdkEnvironment: CDKExpectedENV & NodeJS.ProcessEnv = {
     PRODUCT: env.tag.product,
     TIER: env.tag.tier,
     GITHUB_AUTH_SECRET_ARN: env.githubAuthSecretArn,
@@ -99,7 +100,8 @@ export const pipelineSetupHandler: Handler<GithubPayload> = async (payload) => {
     GITHUB_REPO_NAME: repo,
     DEFAULT_DEPLOYMENT_ENVS: ConfigurationLoader.getDefaultEnvsAsString({ BRANCH_NAME: branch }),
     DEPLOYMENT_IAM_ARN: env.deploymentIamArn,
-    PATH: process.env.PATH
+    PATH: process.env.PATH,
+    PIPELINE_CHATBOT_ADDRESS: env.pipelineNotificationChatbotAddress
   };
   if (process.env.IS_OFFLINE && process.env.AWS_PROFILE) {
     cdkEnvironment.AWS_PROFILE = process.env.AWS_PROFILE;

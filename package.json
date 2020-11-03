@@ -4,31 +4,36 @@
   "description": "",
   "main": "src/index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy": "(cd cdk && tsc) && env-cmd sh scripts/deploy.sh",
+    "cdk": "env-cmd sh scripts/cdk.sh"
   },
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@types/aws-lambda": "^8.10.62",
+    "@types/node": "^14.14.6",
     "@typescript-eslint/eslint-plugin": "^4.1.0",
     "@typescript-eslint/parser": "^4.1.0",
+    "aws-lambda": "^1.0.6",
+    "aws-sdk": "^2.749.0",
+    "env-cmd": "^10.1.0",
     "eslint": "^7.8.1",
     "serverless": "^1.78.1",
     "serverless-offline": "6.5.0",
     "serverless-plugin-typescript": "^1.1.9",
-    "aws-sdk": "^2.749.0",
-    "aws-lambda": "^1.0.6"
-  },
-  "dependencies": {
-    "@aws-cdk/aws-codebuild": "^1.62.0",
-    "@aws-cdk/aws-codepipeline": "^1.62.0",
-    "@aws-cdk/aws-codepipeline-actions": "^1.62.0",
-    "@aws-cdk/aws-iam": "^1.62.0",
-    "@aws-cdk/aws-s3": "^1.62.0",
-    "@aws-cdk/aws-secretsmanager": "^1.62.0",
-    "@types/node": "^14.14.6",
-    "aws-cdk": "1.60.0",
     "ts-node": "^9.0.0",
     "typescript": "^4.0.2"
+  },
+  "dependencies": {
+    "@aws-cdk/aws-codebuild": "1.62.0",
+    "@aws-cdk/aws-codepipeline": "1.62.0",
+    "@aws-cdk/aws-codepipeline-actions": "1.62.0",
+    "@aws-cdk/aws-codestarnotifications": "1.62.0",
+    "@aws-cdk/aws-iam": "1.62.0",
+    "@aws-cdk/aws-s3": "1.62.0",
+    "@aws-cdk/aws-secretsmanager": "1.62.0",
+    "aws-cdk": "1.62.0",
+    "source-map-support": "^0.5.19"
   }
 }

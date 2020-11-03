@@ -4,7 +4,10 @@ import * as secrets_manager from '@aws-cdk/aws-secretsmanager';
 import * as codebuild from '@aws-cdk/aws-codebuild';
 import * as s3 from '@aws-cdk/aws-s3';
 import * as iam from '@aws-cdk/aws-iam';
+import * as codestarnotifications from '@aws-cdk/aws-codestarnotifications';
 import { App, Stack, StackProps } from '@aws-cdk/core';
+
+
 
 export type CodebuildEnvs = {[name: string]: codebuild.BuildEnvironmentVariable; };
 
@@ -12,6 +15,7 @@ interface PipelineStackProps extends StackProps {
   githubInfo: GithubInfo;
   artifactBucketArn: string;
   pipelineIamRoleArn: string;
+  chatBotAddress: string;
   defaultDeploymentEnvVariables: CodebuildEnvs;
 }
 
@@ -20,7 +24,24 @@ interface GithubInfo {
   orginalBranchName: string;
   repoName: string;
   authSecretArn: string;
-  ownerName: string;
+  ownerName: string;  
+}
+
+interface TargetProperty {
+  /**
+   * `CfnNotificationRule.TargetProperty.TargetAddress`.
+   *
+   * @see http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codestarnotifications-notificationrule-target.html#cfn-codestarnotifications-notificationrule-target-targetaddress
+   * @external
+   */
+  readonly targetAddress?: string;
+  /**
+   * `CfnNotificationRule.TargetProperty.TargetType`.
+   *
+   * @see http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codestarnotifications-notificationrule-target.html#cfn-codestarnotifications-notificationrule-target-targettype
+   * @external
+   */
+  readonly targetType?: string;
 }
 
 export class PipelineStack extends Stack {
@@ -66,7 +87,7 @@ export class PipelineStack extends Stack {
       environmentVariables: props.defaultDeploymentEnvVariables,
     });
 
-    new codepipeline.Pipeline(this, `GithubCodePipeline`, {
+    const pipeline = new codepipeline.Pipeline(this, `GithubCodePipeline`, {
       pipelineName: `${props.githubInfo.branchName}`,
       role: iamRole,
       restartExecutionOnUpdate: true,
@@ -81,6 +102,21 @@ export class PipelineStack extends Stack {
           actions: [ buildAction ],
         }
       ],
+    });
+    const notificationTarget: TargetProperty = {
+      targetAddress: props.chatBotAddress,
+      targetType: 'AWSChatbotSlack'
+    };
+    new codestarnotifications.CfnNotificationRule(this, 'CodePipelineNotificationRule', {
+      eventTypeIds: [
+        'codepipeline-pipeline-action-execution-succeeded',
+        'codepipeline-pipeline-action-execution-failed'],
+      name: `n-${props.githubInfo.branchName}`,
+      targets: [
+        notificationTarget
+      ],
+      detailType: 'FULL',
+      resource: pipeline.pipelineArn
     });
   }
 }
