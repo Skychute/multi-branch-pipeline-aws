@@ -1,0 +1,9 @@
+.serverless
+.build
+node_modules
+cdk.out
+cdk/**/*.js
+.DS_Store
+
+.env
+deployment-environment.json
