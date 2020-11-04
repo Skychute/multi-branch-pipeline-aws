@@ -1,21 +1,18 @@
 import { APIGatewayProxyHandler, Handler } from 'aws-lambda';
-import { Lambda, CodePipeline, AWSError } from 'aws-sdk';
+import { Lambda, CodePipeline, AWSError, S3, CodeBuild } from 'aws-sdk';
 import { GithubPayload, isSignatureValid } from './github-payload';
 import { ProcessRunner } from './utils/process-runner';
 import { ConfigurationLoader } from './utils/config-loader';
 import { PromiseResult } from 'aws-sdk/lib/request';
 import { PipelineSummary } from 'aws-sdk/clients/codepipeline';
 import { ExpectedENV as CDKExpectedENV } from '../cdk/util/config-loader';
-import unzipper from 'unzipper';
-import { waitForStream } from './utils/await-stream';
 
 const lambda = (process.env.IS_OFFLINE) ? new Lambda({
   endpoint: 'http://localhost:3002',
 }) : new Lambda();
 
-const s3 = new S3({
-  // endpoint: 'http://localhost:3002' 
-});
+const cdkOutDir = process.env.IS_OFFLINE? 'tmp' : '/tmp';
+const s3 = new S3();
 
 const env = ConfigurationLoader.load();
 
@@ -36,35 +33,51 @@ export const pipelineHandler: APIGatewayProxyHandler = async (event) => {
     const parsedBody = JSON.parse(event.body) as GithubPayload;
     const githubEvent = event.headers['X-GitHub-Event'];
     try {
-      if (['create'].includes(githubEvent)) {
-        console.log('[create] event recieved, running pipeline setup');
-        await lambda.invoke({
-          FunctionName: env.pipelineSetupFuncArn,
-          Payload: event.body,
-          InvocationType: 'Event',
-        }).promise();
-      }
-      if (githubEvent === 'push') {
-        // when delete or create event occur, they also trigger a push event immediately before or after
-        // we shouldn't trigger the pipeline on 'create' push because it doesn't exist yet
-        // we shouldn't trigger the pipeline on 'delete' push because it the branch is no longer there 
-        switch (true) {
-          case parsedBody.deleted: {
-            console.log('[push-deleted] event recieved, nothing to do');
-            break;
+      switch (githubEvent) {
+        case 'create': {
+          console.log('[create] event recieved, running pipeline setup');
+          await lambda.invoke({
+            FunctionName: env.pipelineSetupFuncArn,
+            Payload: event.body,
+            InvocationType: 'Event',
+          }).promise();
+          break;
+        }
+        case 'push': {
+          // when delete or create event occur, they also trigger a push event immediately before or after
+          // we shouldn't trigger the pipeline on 'create' push because it doesn't exist yet
+          // we shouldn't trigger the pipeline on 'delete' push because it the branch is no longer there 
+          switch (true) {
+            case parsedBody.deleted: {
+              console.log('[push-deleted] event recieved, nothing to do');
+              break;
+            }
+            case parsedBody.created: {
+              console.log('[push-created] event recieved, nothing to do');
+              break;
+            }
+            default: {
+              console.log('[push-commit] event recieved, triggering the pipeline');
+              await lambda.invoke({
+                FunctionName: env.pipelineExecuteFuncArn,
+                Payload: event.body,
+                InvocationType: 'Event',
+              }).promise();
+            }
           }
-          case parsedBody.created: {
-            console.log('[push-created] event recieved, nothing to do');
-            break;
-          }// TODO: check PRs
-          default: {
-            console.log('[push-commit] event recieved, triggering the pipeline');
-            await lambda.invoke({
-              FunctionName: env.pipelineExecuteFuncArn,
-              Payload: event.body,
-              InvocationType: 'Event',
-            }).promise();
-          }
+        }
+        break;
+        case 'delete': {
+          console.log('[delete] event recieved, running the teardown');
+          await lambda.invoke({
+            FunctionName: env.environmentTeardownFuncArn,
+            Payload: event.body,
+            InvocationType: 'Event',
+          }).promise();
+          break;
+        }
+        default: {
+          console.warn(`Received an event of unexpected type [${githubEvent}]. Consider unsubsribing this webhook from it.`);
         }
       }
     } catch (e) {
@@ -94,7 +107,7 @@ export const pipelineSetupHandler: Handler<GithubPayload> = async (payload) => {
   const branch = ref.replace('refs/heads/', '');
   const repo = payload.repository.name;
   const owner = payload.repository.owner.name || payload.repository.owner.login;
-  const cdkEnvironment: CDKExpectedENV & NodeJS.ProcessEnv = {
+  const processEnvironment: CDKExpectedENV & NodeJS.ProcessEnv = {
     PRODUCT: env.tag.product,
     TIER: env.tag.tier,
     GITHUB_AUTH_SECRET_ARN: env.githubAuthSecretArn,
@@ -108,40 +121,32 @@ export const pipelineSetupHandler: Handler<GithubPayload> = async (payload) => {
     PIPELINE_CHATBOT_ADDRESS: env.pipelineNotificationChatbotAddress
   };
   if (process.env.IS_OFFLINE && process.env.AWS_PROFILE) {
-    cdkEnvironment.AWS_PROFILE = process.env.AWS_PROFILE;
+    processEnvironment.AWS_PROFILE = process.env.AWS_PROFILE;
   } else {
-    cdkEnvironment.AWS_REGION = process.env.AWS_REGION;
-    cdkEnvironment.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
-    cdkEnvironment.AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
-    cdkEnvironment.AWS_SESSION_TOKEN = process.env.AWS_SESSION_TOKEN;
+    processEnvironment.AWS_REGION = process.env.AWS_REGION;
+    processEnvironment.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
+    processEnvironment.AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
+    processEnvironment.AWS_SESSION_TOKEN = process.env.AWS_SESSION_TOKEN;
   }
   await ProcessRunner.runProcess(
     'node',
-    ["node_modules/aws-cdk/bin/cdk", "deploy", '"*"', '--require-approval', 'never', '--output', '/tmp'],
+    ["node_modules/aws-cdk/bin/cdk", "deploy", '"*"', '--require-approval', 'never', '--output', cdkOutDir],
     {
       stdout: process.stdout,
       stdin: process.stdin,
       stderr: process.stderr,
       spawnOptions: {
-        env: cdkEnvironment
+        env: processEnvironment
       }
     }
   );
 
 };
 
-export const pipelineExecutionHandler: Handler<GithubPayload> = async (payload) => {
-  const ref = payload.ref;
-
-  if (!ref) {
-    throw new Error('no ref in payload');
-  }
-
-  const branch = ref.replace('refs/heads/', '');
+async function getPipelineNameByBranch(pipelineService: CodePipeline, branch: string): Promise<string | undefined> {
   const branchSanitized = branch.replace(/\//g, '-');
   const expectedPipelineName = branchSanitized.toLowerCase();
   let matchingPipeline: PipelineSummary | undefined; 
-  const pipelineService = new CodePipeline();
 
   // iterating over existing pipelines
   // until we find a matching one
@@ -161,15 +166,30 @@ export const pipelineExecutionHandler: Handler<GithubPayload> = async (payload) 
     }
   } while (!matchingPipeline && pipelineResult.nextToken);
   
-  if (!matchingPipeline || !matchingPipeline.name) {
-    throw new Error(`Couldn't find a matching pipeline for branch [${branchSanitized}]`);
+  
+  return matchingPipeline?.name;
+}
+export const pipelineExecutionHandler: Handler<GithubPayload> = async (payload) => {
+  const ref = payload.ref;
+
+  if (!ref) {
+    throw new Error('no ref in payload');
   }
+
+  const branch = ref.replace('refs/heads/', '');
+  const pipelineService = new CodePipeline();
+  const pipelineName = await getPipelineNameByBranch(pipelineService, branch);
+  
+  if (!pipelineName) {
+    throw new Error(`Couldn't find a matching pipeline for branch [${branch}]`);
+  }
+
   await pipelineService.startPipelineExecution({
-    name: matchingPipeline.name
+    name: pipelineName
   }).promise();
 }
 
-export const pipelineDestroyHandler: Handler = async (event) => {
+export const environmentTeardownHandler: Handler = async (event) => {
   console.log(event);
   const payload = event as GithubPayload;
   if (!payload.ref) {
@@ -199,24 +219,80 @@ export const pipelineDestroyHandler: Handler = async (event) => {
   if (!objectContent[0].Key) {
     throw new Error('Could not find key!');
   }
+
   const key = objectContent[0].Key;
-  const artifactZipStream = s3.getObject({
-    Bucket: bucketName,
-    Key: key,
-  }).createReadStream();
-  await waitForStream(artifactZipStream.pipe(unzipper.Extract({ path: 'tmp/artifact'})));
-  await ProcessRunner.runProcess(
-    'sh',
-    [`tmp/artifact/scripts/destroy.sh`],
-    {
-      stdout: process.stdout,
-      stdin: process.stdin,
-      stderr: process.stderr,
-      spawnOptions: {
-        env: {
-          BRANCH_NAME: branch.replace(/\//g, '-'),
+  const codeBuild = new CodeBuild();
+  const location = `${bucketName}/${key}`;
+
+  const teardownStartPromise = codeBuild.startBuild({
+    projectName: 'oppenheimer',
+    sourceLocationOverride: location,
+    environmentVariablesOverride: [
+      { name: 'BRANCH_NAME', value: branch.replace(/\//g, '-'), type: 'PLAINTEXT' }
+    ]
+  }).promise();
+
+  const pipelineService = new CodePipeline();
+
+  const pipelineName = await getPipelineNameByBranch(pipelineService, branch);
+  if (pipelineName) {
+    // if there is a pipeline for this branch
+    // we need to stop all currently running stages there
+
+    const pipelineState = await pipelineService.getPipelineState({
+      name: pipelineName
+    }).promise();
+    const activeExecutions: string[] = [];
+    pipelineState.stageStates?.forEach(stageState => {
+        if (stageState.latestExecution?.status === 'InProgress' && stageState.latestExecution.pipelineExecutionId){
+          activeExecutions.push(stageState.latestExecution.pipelineExecutionId);
+        }
+      })
+    await Promise.all(activeExecutions.map(pipelineExecutionId =>
+      pipelineService.stopPipelineExecution({
+        pipelineName,
+        pipelineExecutionId
+      }).promise())
+    );
+
+    // tear down everything that has been created for that branch by this function
+
+    const repo = payload.repository.name;
+    const owner = payload.repository.owner.name || payload.repository.owner.login;
+    const processEnvironment: CDKExpectedENV & NodeJS.ProcessEnv = {
+      PRODUCT: env.tag.product,
+      TIER: env.tag.tier,
+      GITHUB_AUTH_SECRET_ARN: env.githubAuthSecretArn,
+      BRANCH_NAME: branch.replace(/\//g, '-'),
+      ORIGINAL_BRANCH_NAME: branch,
+      GITHUB_OWNER_NAME: owner,
+      GITHUB_REPO_NAME: repo,
+      DEFAULT_DEPLOYMENT_ENVS: ConfigurationLoader.getDefaultEnvsAsString({ BRANCH_NAME: branch }),
+      DEPLOYMENT_IAM_ARN: env.deploymentIamArn,
+      PATH: process.env.PATH,
+      PIPELINE_CHATBOT_ADDRESS: env.pipelineNotificationChatbotAddress
+    };
+    if (process.env.IS_OFFLINE && process.env.AWS_PROFILE) {
+      processEnvironment.AWS_PROFILE = process.env.AWS_PROFILE;
+    } else {
+      processEnvironment.AWS_REGION = process.env.AWS_REGION;
+      processEnvironment.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
+      processEnvironment.AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
+      processEnvironment.AWS_SESSION_TOKEN = process.env.AWS_SESSION_TOKEN;
+    }
+      
+    await ProcessRunner.runProcess(
+      'node',
+      ["node_modules/aws-cdk/bin/cdk", "destroy", `"${branch.replace(/\//g, '-')}-*"`, '--exclusively', '--force', '--output', cdkOutDir],
+      {
+        stdout: process.stdout,
+        stdin: process.stdin,
+        stderr: process.stderr,
+        spawnOptions: {
+          env: processEnvironment
         }
       }
-    }
-  );
+    );
+  }
+  await teardownStartPromise;
 };
