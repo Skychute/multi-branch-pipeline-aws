@@ -107,68 +107,13 @@ export const pipelineSetupHandler: Handler<GithubPayload> = async (payload) => {
   const branch = ref.replace('refs/heads/', '');
   const repo = payload.repository.name;
   const owner = payload.repository.owner.name || payload.repository.owner.login;
-  const processEnvironment: CDKExpectedENV & NodeJS.ProcessEnv = {
-    PRODUCT: env.tag.product,
-    TIER: env.tag.tier,
-    GITHUB_AUTH_SECRET_ARN: env.githubAuthSecretArn,
-    BRANCH_NAME: branch.replace(/\//g, '-'),
-    ORIGINAL_BRANCH_NAME: branch,
-    GITHUB_OWNER_NAME: owner,
-    GITHUB_REPO_NAME: repo,
-    DEFAULT_DEPLOYMENT_ENVS: ConfigurationLoader.getDefaultEnvsAsString({ BRANCH_NAME: branch }),
-    DEPLOYMENT_IAM_ARN: env.deploymentIamArn,
-    PATH: process.env.PATH,
-    PIPELINE_CHATBOT_ADDRESS: env.pipelineNotificationChatbotAddress
-  };
-  if (process.env.IS_OFFLINE && process.env.AWS_PROFILE) {
-    processEnvironment.AWS_PROFILE = process.env.AWS_PROFILE;
-  } else {
-    processEnvironment.AWS_REGION = process.env.AWS_REGION;
-    processEnvironment.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
-    processEnvironment.AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
-    processEnvironment.AWS_SESSION_TOKEN = process.env.AWS_SESSION_TOKEN;
-  }
-  await ProcessRunner.runProcess(
-    'node',
-    ["node_modules/aws-cdk/bin/cdk", "deploy", '"*"', '--require-approval', 'never', '--output', cdkOutDir],
-    {
-      stdout: process.stdout,
-      stdin: process.stdin,
-      stderr: process.stderr,
-      spawnOptions: {
-        env: processEnvironment
-      }
-    }
+  
+  await runCDK({ branch, owner, repo }, [
+    'deploy', '"*"', '--require-approval', 'never', '--output', cdkOutDir]
   );
 
 };
 
-async function getPipelineNameByBranch(pipelineService: CodePipeline, branch: string): Promise<string | undefined> {
-  const branchSanitized = branch.replace(/\//g, '-');
-  const expectedPipelineName = branchSanitized.toLowerCase();
-  let matchingPipeline: PipelineSummary | undefined; 
-
-  // iterating over existing pipelines
-  // until we find a matching one
-  // or run out of pipelines
-  let pipelineResult: PromiseResult<CodePipeline.ListPipelinesOutput, AWSError>;
-  do {
-    pipelineResult = await pipelineService.listPipelines({}).promise();
-    if (pipelineResult.$response.error) {
-      throw pipelineResult.$response.error
-    }
-    if (!pipelineResult.$response.data) {
-      break;
-    }
-    const pipelines = pipelineResult.$response.data.pipelines;
-    if (pipelines) {
-      matchingPipeline = pipelines.find(p => p.name && p.name.toLowerCase() === expectedPipelineName);
-    }
-  } while (!matchingPipeline && pipelineResult.nextToken);
-  
-  
-  return matchingPipeline?.name;
-}
 export const pipelineExecutionHandler: Handler<GithubPayload> = async (payload) => {
   const ref = payload.ref;
 
@@ -190,7 +135,6 @@ export const pipelineExecutionHandler: Handler<GithubPayload> = async (payload) 
 }
 
 export const environmentTeardownHandler: Handler = async (event) => {
-  console.log(event);
   const payload = event as GithubPayload;
   if (!payload.ref) {
     return {
@@ -202,7 +146,7 @@ export const environmentTeardownHandler: Handler = async (event) => {
   const branch = ref.replace('refs/heads/', '');
 
   const branchName = branch.replace(/\//g, '-');
-  const bucketName = 'artifacts-connect-portal'; // TODO: MAKE ENV
+  const bucketName = `artifacts-${payload.repository.name.toLowerCase()}`
   const objListOutput = await s3.listObjectsV2({
     Bucket: bucketName,
     Prefix: `${branchName}/Artifact_S/`,
@@ -225,7 +169,7 @@ export const environmentTeardownHandler: Handler = async (event) => {
   const location = `${bucketName}/${key}`;
 
   const teardownStartPromise = codeBuild.startBuild({
-    projectName: 'oppenheimer',
+    projectName: env.teardownCodebuildProjectName,
     sourceLocationOverride: location,
     environmentVariablesOverride: [
       { name: 'BRANCH_NAME', value: branch.replace(/\//g, '-'), type: 'PLAINTEXT' }
@@ -236,6 +180,7 @@ export const environmentTeardownHandler: Handler = async (event) => {
 
   const pipelineName = await getPipelineNameByBranch(pipelineService, branch);
   if (pipelineName) {
+
     // if there is a pipeline for this branch
     // we need to stop all currently running stages there
 
@@ -259,40 +204,94 @@ export const environmentTeardownHandler: Handler = async (event) => {
 
     const repo = payload.repository.name;
     const owner = payload.repository.owner.name || payload.repository.owner.login;
-    const processEnvironment: CDKExpectedENV & NodeJS.ProcessEnv = {
-      PRODUCT: env.tag.product,
-      TIER: env.tag.tier,
-      GITHUB_AUTH_SECRET_ARN: env.githubAuthSecretArn,
-      BRANCH_NAME: branch.replace(/\//g, '-'),
-      ORIGINAL_BRANCH_NAME: branch,
-      GITHUB_OWNER_NAME: owner,
-      GITHUB_REPO_NAME: repo,
-      DEFAULT_DEPLOYMENT_ENVS: ConfigurationLoader.getDefaultEnvsAsString({ BRANCH_NAME: branch }),
-      DEPLOYMENT_IAM_ARN: env.deploymentIamArn,
-      PATH: process.env.PATH,
-      PIPELINE_CHATBOT_ADDRESS: env.pipelineNotificationChatbotAddress
-    };
-    if (process.env.IS_OFFLINE && process.env.AWS_PROFILE) {
-      processEnvironment.AWS_PROFILE = process.env.AWS_PROFILE;
-    } else {
-      processEnvironment.AWS_REGION = process.env.AWS_REGION;
-      processEnvironment.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
-      processEnvironment.AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
-      processEnvironment.AWS_SESSION_TOKEN = process.env.AWS_SESSION_TOKEN;
-    }
-      
-    await ProcessRunner.runProcess(
-      'node',
-      ["node_modules/aws-cdk/bin/cdk", "destroy", `"${branch.replace(/\//g, '-')}-*"`, '--exclusively', '--force', '--output', cdkOutDir],
-      {
-        stdout: process.stdout,
-        stdin: process.stdin,
-        stderr: process.stderr,
-        spawnOptions: {
-          env: processEnvironment
-        }
-      }
+    await runCDK({ branch, owner, repo }, [
+      'destroy', `"${branch.replace(/\//g, '-')}-*"`,
+      '--exclusively', '--force', '--output', cdkOutDir]
     );
   }
   await teardownStartPromise;
 };
+
+/**
+ * Finds code pipeline based on the branch name
+ * @param pipelineService CodePipeline service instance to use
+ * @param branch branch name
+ */
+async function getPipelineNameByBranch(pipelineService: CodePipeline, branch: string): Promise<string | undefined> {
+  const branchSanitized = branch.replace(/\//g, '-');
+  const expectedPipelineName = branchSanitized.toLowerCase();
+  let matchingPipeline: PipelineSummary | undefined; 
+
+  // iterating over existing pipelines
+  // until we find a matching one
+  // or run out of pipelines
+
+  let pipelineResult: PromiseResult<CodePipeline.ListPipelinesOutput, AWSError>;
+  do {
+    pipelineResult = await pipelineService.listPipelines({}).promise();
+    if (pipelineResult.$response.error) {
+      throw pipelineResult.$response.error
+    }
+    if (!pipelineResult.$response.data) {
+      break;
+    }
+    const pipelines = pipelineResult.$response.data.pipelines;
+    if (pipelines) {
+      matchingPipeline = pipelines.find(p => p.name && p.name.toLowerCase() === expectedPipelineName);
+    }
+  } while (!matchingPipeline && pipelineResult.nextToken);
+  
+  
+  return matchingPipeline?.name;
+}
+
+/**
+ * Run CDK process
+ * @param repositoryInfo information about the repo 
+ * @param args arguments to run cdk command with
+ */
+async function runCDK({ branch, owner, repo }: {
+  /** Branch */
+  branch: string,
+  /** Repository owner login */
+  owner: string,
+  /** Repository name */
+  repo: string
+}, args: string[]): Promise<void> {
+
+  const processEnvironment: CDKExpectedENV & NodeJS.ProcessEnv = {
+    PRODUCT: env.tag.product,
+    TIER: env.tag.tier,
+    GITHUB_AUTH_SECRET_ARN: env.githubAuthSecretArn,
+    BRANCH_NAME: branch.replace(/\//g, '-'),
+    ORIGINAL_BRANCH_NAME: branch,
+    GITHUB_OWNER_NAME: owner,
+    GITHUB_REPO_NAME: repo,
+    DEFAULT_DEPLOYMENT_ENVS: ConfigurationLoader.getDefaultEnvsAsString({ BRANCH_NAME: branch }),
+    DEPLOYMENT_IAM_ARN: env.deploymentIamArn,
+    PATH: process.env.PATH,
+    PIPELINE_CHATBOT_ADDRESS: env.pipelineNotificationChatbotAddress
+  };
+
+  if (process.env.IS_OFFLINE && process.env.AWS_PROFILE) {
+    processEnvironment.AWS_PROFILE = process.env.AWS_PROFILE;
+  } else {
+    processEnvironment.AWS_REGION = process.env.AWS_REGION;
+    processEnvironment.AWS_ACCESS_KEY_ID = process.env.AWS_ACCESS_KEY_ID;
+    processEnvironment.AWS_SECRET_ACCESS_KEY = process.env.AWS_SECRET_ACCESS_KEY;
+    processEnvironment.AWS_SESSION_TOKEN = process.env.AWS_SESSION_TOKEN;
+  }
+    
+  await ProcessRunner.runProcess(
+    'node',
+    ['node_modules/aws-cdk/bin/cdk', ...args],
+    {
+      stdout: process.stdout,
+      stdin: process.stdin,
+      stderr: process.stderr,
+      spawnOptions: {
+        env: processEnvironment
+      }
+    }
+  );
+}

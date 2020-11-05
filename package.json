@@ -36,8 +36,6 @@
     "@aws-cdk/aws-s3": "1.62.0",
     "@aws-cdk/aws-secretsmanager": "1.62.0",
     "aws-cdk": "1.62.0",
-    "source-map-support": "^0.5.19",
-    "unzipper": "^0.10.11",
-    "@types/unzipper": "^0.10.3"
+    "source-map-support": "^0.5.19"
   }
 }

@@ -10,6 +10,7 @@ export interface Config {
   pipelineExecuteFuncArn: string;
   environmentTeardownFuncArn: string;
   pipelineNotificationChatbotAddress: string;
+  teardownCodebuildProjectName: string;
 }
 
 export class ConfigurationLoader {
@@ -32,7 +33,8 @@ export class ConfigurationLoader {
       pipelineSetupFuncArn: this.strictEnv('PIPELINE_SETUP_FUNCTION_ARN'),
       pipelineExecuteFuncArn: this.strictEnv('PIPELINE_EXECUTE_FUNCTION_ARN'),
       environmentTeardownFuncArn: this.strictEnv('TEARDOWN_FUNCTION_ARN'),
-      pipelineNotificationChatbotAddress: this.strictEnv('PIPELINE_CHATBOT_ADDRESS')
+      pipelineNotificationChatbotAddress: this.strictEnv('PIPELINE_CHATBOT_ADDRESS'),
+      teardownCodebuildProjectName: this.strictEnv('TEARDOWN_PROJECT_NAME'),
     };
     return this._config;
   }

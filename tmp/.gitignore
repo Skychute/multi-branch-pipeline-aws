@@ -1,0 +1,6 @@
+# we need to keep this folder as some scripts depend on it when running locally
+# it emulates the /tmp folder in lambda environment
+# we don't want the contents of this folder to be under the source control
+# credit: https://stackoverflow.com/questions/7229885/what-are-the-differences-between-gitignore-and-gitkeep#comment27335723_7229996
+*
+!.gitignore
