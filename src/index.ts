@@ -77,7 +77,7 @@ export const pipelineHandler: APIGatewayProxyHandler = async (event) => {
           break;
         }
         default: {
-          console.warn(`Received an event of unexpected type [${githubEvent}]. Consider unsubsribing this webhook from it.`);
+          throw new Error(`Received an event of unexpected type [${githubEvent}]. Consider unsubsribing this webhook from it.`);
         }
       }
     } catch (e) {
@@ -137,10 +137,7 @@ export const pipelineExecutionHandler: Handler<GithubPayload> = async (payload) 
 export const environmentTeardownHandler: Handler = async (event) => {
   const payload = event as GithubPayload;
   if (!payload.ref) {
-    return {
-      statusCode: 500,
-      body: 'no ref in payload',
-    }
+    throw new Error('no ref in payload');
   }
   const ref = payload.ref;
   const branch = ref.replace('refs/heads/', '');

@@ -87,7 +87,7 @@ export class PipelineStack extends Stack {
       environmentVariables: props.defaultDeploymentEnvVariables,
     });
 
-    const pipeline = new codepipeline.Pipeline(this, `GithubCodePipeline`, {
+    const pipeline = new codepipeline.Pipeline(this, 'GithubCodePipeline', {
       pipelineName: `${props.githubInfo.branchName}`,
       role: iamRole,
       restartExecutionOnUpdate: true,

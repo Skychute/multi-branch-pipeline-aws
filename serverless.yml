@@ -33,6 +33,7 @@ provider:
     PIPELINE_SETUP_FUNCTION_ARN: mbp-connect-portal-dev-pipeline-setup
     PIPELINE_EXECUTE_FUNCTION_ARN: mbp-connect-portal-dev-pipeline-execute
     TEARDOWN_FUNCTION_ARN: mbp-connect-portal-dev-teardown
+    TEARDOWN_PROJECT_NAME: ${env:TEARDOWN_PROJECT_NAME}
   iamRoleStatements:
     - Effect: Allow
       Action:
