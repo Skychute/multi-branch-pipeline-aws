@@ -6,6 +6,7 @@ import { ConfigurationLoader } from './utils/config-loader';
 import { PromiseResult } from 'aws-sdk/lib/request';
 import { PipelineSummary } from 'aws-sdk/clients/codepipeline';
 import { ExpectedENV as CDKExpectedENV } from '../cdk/util/config-loader';
+import { artefactsBucketNameForRepo } from '../cdk/util/stack-utils';
 
 const lambda = (process.env.IS_OFFLINE) ? new Lambda({
   endpoint: 'http://localhost:3002',
@@ -108,6 +109,8 @@ export const pipelineSetupHandler: Handler<GithubPayload> = async (payload) => {
   const repo = payload.repository.name;
   const owner = payload.repository.owner.name || payload.repository.owner.login;
   
+  console.log(`Setting up the pipeline for [${repo}/${branch}]`);
+
   await runCDK({ branch, owner, repo }, [
     'deploy', '"*"', '--require-approval', 'never', '--output', cdkOutDir]
   );
@@ -122,6 +125,9 @@ export const pipelineExecutionHandler: Handler<GithubPayload> = async (payload) 
   }
 
   const branch = ref.replace('refs/heads/', '');
+
+  console.log(`Executing pipeline for [${payload.repository.name}/${branch}]`);
+
   const pipelineService = new CodePipeline();
   const pipelineName = await getPipelineNameByBranch(pipelineService, branch);
   
@@ -141,27 +147,34 @@ export const environmentTeardownHandler: Handler = async (event) => {
   }
   const ref = payload.ref;
   const branch = ref.replace('refs/heads/', '');
+  
+  console.log(`Tearing down the environment for [${payload.repository.name}/${branch}]`);
 
   const branchName = branch.replace(/\//g, '-');
-  const bucketName = `artifacts-${payload.repository.name.toLowerCase()}`
-  const objListOutput = await s3.listObjectsV2({
-    Bucket: bucketName,
-    Prefix: `${branchName}/Artifact_S/`,
-  }).promise();
-  if (!objListOutput.$response.data || !objListOutput.$response.data.Contents?.length) {
-    throw new Error('Could not find contents!');
-  }
-  const objectContent = objListOutput.$response.data.Contents;
-  objectContent.sort((a, b) => {
+  const bucketName = artefactsBucketNameForRepo(payload.repository.name);
+  const artefacts: S3.Object[] = [];
+  let nextContinuationToken: string | undefined;
+  do {
+    const objListOutput = await s3.listObjectsV2({
+      Bucket: bucketName,
+      Prefix: `${branchName}/Artifact_S/`,
+      ContinuationToken: nextContinuationToken
+    }).promise();
+    nextContinuationToken = objListOutput.NextContinuationToken;
+    if (objListOutput.Contents) {
+      artefacts.push(...objListOutput.Contents);
+    }
+  } while (nextContinuationToken)
+  artefacts.sort((a, b) => {
     if (!a.LastModified) return 1;
     if (!b.LastModified) return -1;
     return b.LastModified.valueOf() - a.LastModified.valueOf();
   });
-  if (!objectContent[0].Key) {
-    throw new Error('Could not find key!');
+  const key = artefacts[0].Key;
+  if (!key) {
+    throw new Error(`Could't find artefact key in the [${bucketName}/${branchName}/Artifact_S/]`);
   }
 
-  const key = objectContent[0].Key;
   const codeBuild = new CodeBuild();
   const location = `${bucketName}/${key}`;
 
