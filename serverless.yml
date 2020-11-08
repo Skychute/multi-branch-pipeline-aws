@@ -32,6 +32,8 @@ provider:
     DEFAULT_LOKALISE_WEB_APP_PROJECT_ID: ${env:DEFAULT_LOKALISE_WEB_APP_PROJECT_ID}
     PIPELINE_SETUP_FUNCTION_ARN: mbp-connect-portal-dev-pipeline-setup
     PIPELINE_EXECUTE_FUNCTION_ARN: mbp-connect-portal-dev-pipeline-execute
+    TEARDOWN_FUNCTION_ARN: mbp-connect-portal-dev-teardown
+    TEARDOWN_PROJECT_NAME: ${env:TEARDOWN_PROJECT_NAME}
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -50,5 +52,7 @@ functions:
   pipeline-execute:
     timeout: 600
     handler: src/index.pipelineExecutionHandler
-
+  teardown:
+    timeout: 900
+    handler: src/index.environmentTeardownHandler
 

@@ -8,7 +8,9 @@ export interface Config {
   githubWebhookSecret: string;
   pipelineSetupFuncArn: string;
   pipelineExecuteFuncArn: string;
+  environmentTeardownFuncArn: string;
   pipelineNotificationChatbotAddress: string;
+  teardownCodebuildProjectName: string;
 }
 
 export class ConfigurationLoader {
@@ -30,7 +32,9 @@ export class ConfigurationLoader {
       githubWebhookSecret: this.strictEnv('GITHUB_WEBHOOK_SECRET'),
       pipelineSetupFuncArn: this.strictEnv('PIPELINE_SETUP_FUNCTION_ARN'),
       pipelineExecuteFuncArn: this.strictEnv('PIPELINE_EXECUTE_FUNCTION_ARN'),
-      pipelineNotificationChatbotAddress: this.strictEnv('PIPELINE_CHATBOT_ADDRESS')
+      environmentTeardownFuncArn: this.strictEnv('TEARDOWN_FUNCTION_ARN'),
+      pipelineNotificationChatbotAddress: this.strictEnv('PIPELINE_CHATBOT_ADDRESS'),
+      teardownCodebuildProjectName: this.strictEnv('TEARDOWN_PROJECT_NAME'),
     };
     return this._config;
   }
