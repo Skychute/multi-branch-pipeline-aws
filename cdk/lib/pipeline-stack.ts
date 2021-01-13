@@ -75,7 +75,7 @@ export class PipelineStack extends Stack {
       environment: {
         privileged: true,
         buildImage: codebuild.LinuxBuildImage.STANDARD_4_0,
-        computeType: codebuild.ComputeType.MEDIUM,
+        computeType: codebuild.ComputeType.LARGE,
       }
     });
     
@@ -109,8 +109,8 @@ export class PipelineStack extends Stack {
     };
     new codestarnotifications.CfnNotificationRule(this, 'CodePipelineNotificationRule', {
       eventTypeIds: [
-        'codepipeline-pipeline-action-execution-succeeded',
-        'codepipeline-pipeline-action-execution-failed'],
+        'codepipeline-pipeline-pipeline-execution-failed',
+        'codepipeline-pipeline-pipeline-execution-succeeded'],
       name: `n-${props.githubInfo.branchName}`,
       targets: [
         notificationTarget

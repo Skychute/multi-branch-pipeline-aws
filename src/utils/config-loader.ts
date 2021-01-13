@@ -63,8 +63,8 @@ export class ConfigurationLoader {
   public static getDefaultEnvsAsString(extraVars?: {[key: string]: string}): string {
     const envObj: {[key: string]: string; } = {};
     for (const key of Object.keys(process.env)) {
-      if (key.startsWith('DEFAULT_')) {
-        envObj[key.replace('DEFAULT_', '')] = process.env[key] as string;
+      if (key.startsWith('D_')) {
+        envObj[key.replace('D_', '')] = process.env[key] as string;
       }
     }
     if (extraVars) {
